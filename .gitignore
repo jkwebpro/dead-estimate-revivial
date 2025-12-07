@@ -1,0 +1,32 @@
+# Secrets
+*.env
+*.env.*
+*.key
+*.pem
+*.p12
+secrets/
+.secret/
+*.credentials
+*.token
+*.sqlite
+*.db
+
+# Lock down random scratch/work files
+scratch*
+scratchpad*
+notes*
+*.bak
+*.tmp
+
+# OS / IDE
+.DS_Store
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Build/deps
+node_modules/
+dist/
+build/

@@ -1,0 +1,988 @@
+{
+  "name": "Dead Estimate Revival - Main Follow-up",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "trigger-schedule",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0],
+      "notes": "Runs every 1 minute. Adjust for production if needed."
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $json.config_sheet_id }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Config",
+          "mode": "list"
+        },
+        "options": {}
+      },
+      "id": "get-config",
+      "name": "Get Config",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [220, 0],
+      "notes": "Reads configuration variables from Config sheet"
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $json.config_sheet_id }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Quote_Followups",
+          "mode": "list"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "column": "status",
+              "condition": "equal",
+              "value": "active"
+            },
+            {
+              "column": "opted_out",
+              "condition": "equal",
+              "value": "FALSE"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "get-active-quotes",
+      "name": "Get Active Quotes",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [440, 0],
+      "notes": "Fetches all active, non-opted-out quotes"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "check-due",
+              "leftValue": "={{ $json.next_follow_up }}",
+              "rightValue": "={{ $now.toISO() }}",
+              "operator": {
+                "type": "dateTime",
+                "operation": "before"
+              }
+            },
+            {
+              "id": "check-attempts",
+              "leftValue": "={{ $json.follow_up_count }}",
+              "rightValue": "={{ $('Get Config').item.json.max_attempts }}",
+              "operator": {
+                "type": "number",
+                "operation": "lt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "filter-due-quotes",
+      "name": "Filter Due Quotes",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [660, 0],
+      "notes": "Only process quotes where next_follow_up is past AND under max attempts"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.preferred_channel }}",
+                    "rightValue": "email",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "email"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.preferred_channel }}",
+                    "rightValue": "sms",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "sms"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.preferred_channel }}",
+                    "rightValue": "both",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "both"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "route-by-channel",
+      "name": "Route by Channel",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [880, 0],
+      "notes": "Routes to email, sms, or both branches"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.follow_up_count }}",
+                    "rightValue": 0,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "attempt_1"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.follow_up_count }}",
+                    "rightValue": 1,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "attempt_2"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.follow_up_count }}",
+                    "rightValue": 2,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "attempt_3"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.follow_up_count }}",
+                    "rightValue": 3,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "attempt_4"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "email-template-selector",
+      "name": "Email Template Selector",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [1100, -200],
+      "notes": "Selects email template based on follow_up_count"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "subject",
+              "name": "email_subject",
+              "value": "Quick follow-up on your estimate",
+              "type": "string"
+            },
+            {
+              "id": "body",
+              "name": "email_body",
+              "value": "Hi {{ $json.customer_name }},\n\nI wanted to check in on the estimate I sent over on {{ $json.quote_date }} for {{ $json.quote_amount }}.\n\nDo you have any questions, or is there anything I can clarify?\n\nHappy to jump on a quick call if that's easier.\n\nBest,\n{{ $('Get Config').item.json.sender_name }}\n{{ $('Get Config').item.json.sender_phone }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "email-template-1",
+      "name": "Email Template 1",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1320, -400],
+      "notes": "Attempt 1: Friendly check-in"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "subject",
+              "name": "email_subject",
+              "value": "Still thinking it over?",
+              "type": "string"
+            },
+            {
+              "id": "body",
+              "name": "email_body",
+              "value": "Hi {{ $json.customer_name }},\n\nJust circling back on your estimate ({{ $json.quote_amount }}).\n\nA few clients in similar situations found it helpful to lock in pricing before our next adjustment.\n\nLet me know if you'd like to move forward or if anything's holding you back.\n\nBest,\n{{ $('Get Config').item.json.sender_name }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "email-template-2",
+      "name": "Email Template 2",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1320, -280],
+      "notes": "Attempt 2: Value reminder"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "subject",
+              "name": "email_subject",
+              "value": "Before this slips away",
+              "type": "string"
+            },
+            {
+              "id": "body",
+              "name": "email_body",
+              "value": "Hi {{ $json.customer_name }},\n\nI know things get busy - just wanted to make sure your estimate doesn't fall through the cracks.\n\nIf timing or budget is a concern, I'm happy to discuss options.\n\nWorth a quick conversation?\n\nBest,\n{{ $('Get Config').item.json.sender_name }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "email-template-3",
+      "name": "Email Template 3",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1320, -160],
+      "notes": "Attempt 3: Urgency"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "subject",
+              "name": "email_subject",
+              "value": "Closing the loop",
+              "type": "string"
+            },
+            {
+              "id": "body",
+              "name": "email_body",
+              "value": "Hi {{ $json.customer_name }},\n\nI haven't heard back, so I'll assume the timing isn't right.\n\nNo hard feelings - I'll close this out on my end. If anything changes, just reply to this email and we can pick back up.\n\nThanks for considering us.\n\nBest,\n{{ $('Get Config').item.json.sender_name }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "email-template-4",
+      "name": "Email Template 4",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1320, -40],
+      "notes": "Attempt 4: Final"
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "to": "={{ $json.customer_email }}",
+        "subject": "={{ $json.email_subject }}",
+        "message": "={{ $json.email_body }}",
+        "options": {
+          "replyTo": "={{ $('Get Config').item.json.sender_email }}"
+        }
+      },
+      "id": "send-email",
+      "name": "Send Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [1540, -200],
+      "notes": "Sends email via Gmail",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "GMAIL_CREDENTIAL_ID",
+          "name": "Gmail Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.follow_up_count }}",
+                    "rightValue": 0,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "attempt_1"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.follow_up_count }}",
+                    "rightValue": 1,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "attempt_2"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.follow_up_count }}",
+                    "rightValue": 2,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "attempt_3"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.follow_up_count }}",
+                    "rightValue": 3,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "attempt_4"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "sms-template-selector",
+      "name": "SMS Template Selector",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [1100, 200],
+      "notes": "Selects SMS template based on follow_up_count"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "sms_body",
+              "name": "sms_body",
+              "value": "Hi {{ $json.customer_name }}, this is {{ $('Get Config').item.json.sender_name }}. Just following up on the estimate I sent ({{ $json.quote_amount }}). Any questions? Reply STOP to opt out.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "sms-template-1",
+      "name": "SMS Template 1",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1320, 80],
+      "notes": "Attempt 1: Friendly check-in with opt-out"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "sms_body",
+              "name": "sms_body",
+              "value": "Hi {{ $json.customer_name }}, checking in on your estimate. Happy to answer any questions or adjust if needed. - {{ $('Get Config').item.json.sender_name }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "sms-template-2",
+      "name": "SMS Template 2",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1320, 200],
+      "notes": "Attempt 2: Value reminder"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "sms_body",
+              "name": "sms_body",
+              "value": "{{ $json.customer_name }}, just wanted to make sure your estimate doesn't slip away. Let me know if you'd like to move forward. - {{ $('Get Config').item.json.sender_name }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "sms-template-3",
+      "name": "SMS Template 3",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1320, 320],
+      "notes": "Attempt 3: Urgency"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "sms_body",
+              "name": "sms_body",
+              "value": "{{ $json.customer_name }}, closing the loop on your estimate. Reply anytime if you'd like to revisit. Thanks! - {{ $('Get Config').item.json.sender_name }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "sms-template-4",
+      "name": "SMS Template 4",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1320, 440],
+      "notes": "Attempt 4: Final"
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "from": "={{ $('Get Config').item.json.twilio_phone_number }}",
+        "to": "={{ $json.customer_phone }}",
+        "message": "={{ $json.sms_body }}"
+      },
+      "id": "send-sms",
+      "name": "Send SMS",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [1540, 200],
+      "notes": "Sends SMS via Twilio",
+      "credentials": {
+        "twilioApi": {
+          "id": "TWILIO_CREDENTIAL_ID",
+          "name": "Twilio Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "new_count",
+              "name": "new_follow_up_count",
+              "value": "={{ $json.follow_up_count + 1 }}",
+              "type": "number"
+            },
+            {
+              "id": "last_fu",
+              "name": "new_last_follow_up",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            },
+            {
+              "id": "next_fu",
+              "name": "new_next_follow_up",
+              "value": "={{ $('Get Config').item.json.mode === 'demo' ? ($json.follow_up_count === 0 ? $now.plus({minutes: 5}).toISO() : ($json.follow_up_count === 1 ? $now.plus({minutes: 10}).toISO() : ($json.follow_up_count === 2 ? $now.plus({minutes: 15}).toISO() : $now.plus({minutes: 20}).toISO()))) : ($json.follow_up_count === 0 ? $now.plus({days: 5}).toISO() : ($json.follow_up_count === 1 ? $now.plus({days: 10}).toISO() : ($json.follow_up_count === 2 ? $now.plus({days: 14}).toISO() : $now.plus({days: 30}).toISO()))) }}",
+              "type": "string"
+            },
+            {
+              "id": "new_status",
+              "name": "new_status",
+              "value": "={{ ($json.follow_up_count + 1) >= $('Get Config').item.json.max_attempts ? 'lost' : 'active' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "calculate-next-followup",
+      "name": "Calculate Next Follow-up",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1760, 0],
+      "notes": "Calculates next follow-up time based on mode (demo/production)"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $('Get Config').item.json.sheet_id }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Quote_Followups",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "follow_up_count": "={{ $json.new_follow_up_count }}",
+            "last_follow_up": "={{ $json.new_last_follow_up }}",
+            "next_follow_up": "={{ $json.new_next_follow_up }}",
+            "status": "={{ $json.new_status }}"
+          },
+          "matchingColumns": ["quote_id"]
+        },
+        "options": {}
+      },
+      "id": "update-sheet",
+      "name": "Update Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [1980, 0],
+      "notes": "Updates the quote record with new follow-up data",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "GOOGLE_SHEETS_CREDENTIAL_ID",
+          "name": "Google Sheets Account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Config": {
+      "main": [
+        [
+          {
+            "node": "Get Active Quotes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Active Quotes": {
+      "main": [
+        [
+          {
+            "node": "Filter Due Quotes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Due Quotes": {
+      "main": [
+        [
+          {
+            "node": "Route by Channel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Channel": {
+      "main": [
+        [
+          {
+            "node": "Email Template Selector",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "SMS Template Selector",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Email Template Selector",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "SMS Template Selector",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Template Selector": {
+      "main": [
+        [
+          {
+            "node": "Email Template 1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Email Template 2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Email Template 3",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Email Template 4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Template 1": {
+      "main": [
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Template 2": {
+      "main": [
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Template 3": {
+      "main": [
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Template 4": {
+      "main": [
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email": {
+      "main": [
+        [
+          {
+            "node": "Calculate Next Follow-up",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SMS Template Selector": {
+      "main": [
+        [
+          {
+            "node": "SMS Template 1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "SMS Template 2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "SMS Template 3",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "SMS Template 4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SMS Template 1": {
+      "main": [
+        [
+          {
+            "node": "Send SMS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SMS Template 2": {
+      "main": [
+        [
+          {
+            "node": "Send SMS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SMS Template 3": {
+      "main": [
+        [
+          {
+            "node": "Send SMS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SMS Template 4": {
+      "main": [
+        [
+          {
+            "node": "Send SMS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send SMS": {
+      "main": [
+        [
+          {
+            "node": "Calculate Next Follow-up",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Next Follow-up": {
+      "main": [
+        [
+          {
+            "node": "Update Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2024-01-01T00:00:00.000Z",
+  "versionId": "1"
+}

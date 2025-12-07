@@ -1,0 +1,428 @@
+{
+  "name": "Dead Estimate Revival - Inbound SMS Handler",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "twilio-inbound-sms",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Twilio Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "webhookId": "twilio-inbound-sms",
+      "notes": "Receives inbound SMS from Twilio. Configure this webhook URL in your Twilio phone number settings."
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "from_phone",
+              "name": "from_phone",
+              "value": "={{ $json.body.From }}",
+              "type": "string"
+            },
+            {
+              "id": "message_body",
+              "name": "message_body",
+              "value": "={{ $json.body.Body }}",
+              "type": "string"
+            },
+            {
+              "id": "is_stop",
+              "name": "is_stop",
+              "value": "={{ $json.body.Body.toLowerCase().includes('stop') }}",
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "parse-incoming",
+      "name": "Parse Incoming SMS",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [220, 0],
+      "notes": "Extracts phone number, message body, and checks for STOP keyword"
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SHEET_ID_HERE",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Quote_Followups",
+          "mode": "list"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "column": "customer_phone",
+              "condition": "equal",
+              "value": "={{ $json.from_phone }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "find-customer",
+      "name": "Find Customer by Phone",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [440, 0],
+      "notes": "Looks up customer record by phone number",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "GOOGLE_SHEETS_CREDENTIAL_ID",
+          "name": "Google Sheets Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-record",
+              "leftValue": "={{ $json.quote_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-customer-exists",
+      "name": "Customer Found?",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [660, 0],
+      "notes": "Continues only if customer record was found"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Parse Incoming SMS').item.json.is_stop }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "opt_out"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Parse Incoming SMS').item.json.is_stop }}",
+                    "rightValue": false,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "reply"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "route-by-intent",
+      "name": "Opt-Out or Reply?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [880, 0],
+      "notes": "Routes to opt-out handler or reply handler"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SHEET_ID_HERE",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Quote_Followups",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "opted_out": "TRUE",
+            "status": "opted_out"
+          },
+          "matchingColumns": ["quote_id"]
+        },
+        "options": {}
+      },
+      "id": "update-opt-out",
+      "name": "Mark Opted Out",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [1100, -100],
+      "notes": "Sets opted_out=TRUE and status=opted_out",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "GOOGLE_SHEETS_CREDENTIAL_ID",
+          "name": "Google Sheets Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "from": "YOUR_TWILIO_PHONE_NUMBER",
+        "to": "={{ $('Parse Incoming SMS').item.json.from_phone }}",
+        "message": "You've been unsubscribed and will no longer receive messages from us. Reply START if you change your mind."
+      },
+      "id": "send-opt-out-confirmation",
+      "name": "Send Opt-Out Confirmation",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [1320, -100],
+      "notes": "Confirms opt-out to customer",
+      "credentials": {
+        "twilioApi": {
+          "id": "TWILIO_CREDENTIAL_ID",
+          "name": "Twilio Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SHEET_ID_HERE",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Quote_Followups",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "status": "replied",
+            "notes": "={{ $json.notes ? $json.notes + '\\n' : '' }}[{{ $now.toISO() }}] SMS Reply: {{ $('Parse Incoming SMS').item.json.message_body }}"
+          },
+          "matchingColumns": ["quote_id"]
+        },
+        "options": {}
+      },
+      "id": "update-replied",
+      "name": "Mark as Replied",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [1100, 100],
+      "notes": "Sets status=replied and appends reply to notes",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "GOOGLE_SHEETS_CREDENTIAL_ID",
+          "name": "Google Sheets Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "to": "OWNER_EMAIL_ADDRESS",
+        "subject": "Customer Reply: {{ $json.customer_name }}",
+        "message": "You received a reply from {{ $json.customer_name }} ({{ $('Parse Incoming SMS').item.json.from_phone }}):\n\n\"{{ $('Parse Incoming SMS').item.json.message_body }}\"\n\nQuote ID: {{ $json.quote_id }}\nQuote Amount: {{ $json.quote_amount }}\n\nThis customer has been marked as 'replied' in your tracking sheet."
+      },
+      "id": "notify-owner",
+      "name": "Notify Owner",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [1320, 100],
+      "notes": "Emails owner about the customer reply",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "GMAIL_CREDENTIAL_ID",
+          "name": "Gmail Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response></Response>",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/xml"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-to-twilio",
+      "name": "Respond to Twilio",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1540, 0],
+      "notes": "Returns empty TwiML response to Twilio"
+    }
+  ],
+  "connections": {
+    "Twilio Webhook": {
+      "main": [
+        [
+          {
+            "node": "Parse Incoming SMS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Incoming SMS": {
+      "main": [
+        [
+          {
+            "node": "Find Customer by Phone",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Customer by Phone": {
+      "main": [
+        [
+          {
+            "node": "Customer Found?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Customer Found?": {
+      "main": [
+        [
+          {
+            "node": "Opt-Out or Reply?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Opt-Out or Reply?": {
+      "main": [
+        [
+          {
+            "node": "Mark Opted Out",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark as Replied",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Opted Out": {
+      "main": [
+        [
+          {
+            "node": "Send Opt-Out Confirmation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Opt-Out Confirmation": {
+      "main": [
+        [
+          {
+            "node": "Respond to Twilio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark as Replied": {
+      "main": [
+        [
+          {
+            "node": "Notify Owner",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify Owner": {
+      "main": [
+        [
+          {
+            "node": "Respond to Twilio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2024-01-01T00:00:00.000Z",
+  "versionId": "1"
+}
