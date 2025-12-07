@@ -1,6 +1,2 @@
 quote_id,customer_name,customer_email,customer_phone,quote_amount,quote_date,preferred_channel,follow_up_count,last_follow_up,next_follow_up,status,opted_out,notes
-DEMO001,Jane Smith,jane.smith@example.com,+15551234567,$2500,2024-01-15,both,0,,,active,FALSE,Initial quote sent via email
-DEMO002,Bob Johnson,bob.j@example.com,+15559876543,$1800,2024-01-14,email,0,,,active,FALSE,Referred by existing customer
-DEMO003,Alice Williams,,+15555551234,$3200,2024-01-13,sms,0,,,active,FALSE,Prefers text only
-DEMO004,Charlie Brown,charlie@example.com,,$950,2024-01-12,email,1,2024-01-14T10:00:00Z,2024-01-19T10:00:00Z,active,FALSE,First follow-up sent
-DEMO005,Diana Ross,diana.r@example.com,+15552223333,$4100,2024-01-10,both,2,2024-01-17T14:30:00Z,2024-01-24T14:30:00Z,active,FALSE,Two follow-ups completed
+Q-2024-001,Jane Smith,jane@example.com,+15551234567,2500,2024-01-15,email,0,,2024-01-01T00:00:00.000Z,active,FALSE,Sample quote - replace with real data

@@ -1,0 +1,9 @@
+key,value
+sheet_id,YOUR_GOOGLE_SHEET_ID_HERE
+company_name,Acme Services
+sender_name,John Smith
+sender_email,john@acmeservices.com
+sender_phone,(555) 123-4567
+twilio_phone_number,+15551234567
+max_attempts,4
+mode,demo

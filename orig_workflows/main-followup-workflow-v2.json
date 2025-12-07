@@ -12,46 +12,33 @@
           ]
         }
       },
-      "id": "282c9132-65e0-4660-a82c-fdd9d198b707",
+      "id": "trigger-schedule",
       "name": "Schedule Trigger",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [
-        -1536,
-        672
-      ],
+      "position": [0, 300],
       "notes": "Runs every 1 minute for demo. Adjust interval for production (e.g., every 15 minutes or hourly)."
     },
     {
       "parameters": {
         "documentId": {
           "__rl": true,
-          "value": "1gYqE_iBiNdYKv2fkXqk2R_sYP9IPPFVxkgeGUVHbXZ0",
+          "value": "YOUR_SHEET_ID_HERE",
           "mode": "id"
         },
         "sheetName": {
           "__rl": true,
-          "value": 903922860,
+          "value": "Config",
           "mode": "list",
-          "cachedResultName": "Config",
-          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1gYqE_iBiNdYKv2fkXqk2R_sYP9IPPFVxkgeGUVHbXZ0/edit#gid=903922860"
+          "cachedResultName": "Config"
         },
         "options": {}
       },
-      "id": "9b45b85e-8223-4e28-aa44-abd5f0f3a4d1",
+      "id": "get-config",
       "name": "Get Config",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.5,
-      "position": [
-        -1312,
-        672
-      ],
-      "credentials": {
-        "googleSheetsOAuth2Api": {
-          "id": "eSVWb3iQZSdmZ98G",
-          "name": "Google Sheets account JKWebPro"
-        }
-      },
+      "position": [220, 300],
       "notes": "Reads configuration variables from Config sheet. Returns key-value pairs."
     },
     {
@@ -68,46 +55,45 @@
         },
         "options": {}
       },
-      "id": "428643ed-f7bb-4f74-9393-64d23c24236a",
+      "id": "parse-config",
       "name": "Parse Config",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [
-        -1088,
-        672
-      ],
+      "position": [440, 300],
       "notes": "Converts config rows into a single object for easy access: config.mode, config.max_attempts, etc."
     },
     {
       "parameters": {
         "documentId": {
           "__rl": true,
-          "value": "1gYqE_iBiNdYKv2fkXqk2R_sYP9IPPFVxkgeGUVHbXZ0",
+          "value": "YOUR_SHEET_ID_HERE",
           "mode": "id"
         },
         "sheetName": {
           "__rl": true,
-          "value": 627713887,
+          "value": "Quote_Followups",
           "mode": "list",
-          "cachedResultName": "Quote_Followups",
-          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1gYqE_iBiNdYKv2fkXqk2R_sYP9IPPFVxkgeGUVHbXZ0/edit#gid=627713887"
+          "cachedResultName": "Quote_Followups"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "status",
+              "lookupValue": "active"
+            },
+            {
+              "lookupColumn": "opted_out",
+              "lookupValue": "FALSE"
+            }
+          ]
         },
         "options": {}
       },
-      "id": "442eb079-9d84-4d48-ab42-e810d7de0081",
+      "id": "get-active-quotes",
       "name": "Get Active Quotes",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.5,
-      "position": [
-        -640,
-        672
-      ],
-      "credentials": {
-        "googleSheetsOAuth2Api": {
-          "id": "eSVWb3iQZSdmZ98G",
-          "name": "Google Sheets account JKWebPro"
-        }
-      },
+      "position": [660, 300],
       "notes": "Fetches all quotes where status=active AND opted_out=FALSE"
     },
     {
@@ -121,17 +107,7 @@
           },
           "conditions": [
             {
-              "id": "check-attempts",
-              "leftValue": "={{ $json.next_follow_up }}",
-              "rightValue": "={{ Number($('Parse Config').item.json.config.max_attempts) }}",
-              "operator": {
-                "type": "string",
-                "operation": "notEmpty",
-                "singleValue": true
-              }
-            },
-            {
-              "id": "adfaee17-109c-4e02-a139-0bbb7f094406",
+              "id": "check-due",
               "leftValue": "={{ $json.next_follow_up }}",
               "rightValue": "={{ $now.toISO() }}",
               "operator": {
@@ -140,8 +116,8 @@
               }
             },
             {
-              "id": "a3c3eafb-bc3a-4c21-8c6c-b3865648eda5",
-              "leftValue": "={{ Number($json.follow_up_count) || 0 }}",
+              "id": "check-attempts",
+              "leftValue": "={{ Number($json.follow_up_count) }}",
               "rightValue": "={{ Number($('Parse Config').item.json.config.max_attempts) }}",
               "operator": {
                 "type": "number",
@@ -151,17 +127,13 @@
           ],
           "combinator": "and"
         },
-        "looseTypeValidation": true,
         "options": {}
       },
-      "id": "4a550ede-c887-4534-b39d-f49a7aac4053",
+      "id": "filter-due-quotes",
       "name": "Filter Due Quotes",
       "type": "n8n-nodes-base.filter",
       "typeVersion": 2.2,
-      "position": [
-        -192,
-        672
-      ],
+      "position": [880, 300],
       "notes": "Only process quotes where next_follow_up <= NOW AND follow_up_count < max_attempts"
     },
     {
@@ -244,14 +216,11 @@
         },
         "options": {}
       },
-      "id": "daefea19-12f3-4a52-9da2-c5d67b1266e2",
+      "id": "route-by-channel",
       "name": "Route by Channel",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
-      "position": [
-        32,
-        656
-      ],
+      "position": [1100, 300],
       "notes": "Routes to email-only, sms-only, or both branches based on preferred_channel"
     },
     {
@@ -263,7 +232,7 @@
                 "options": {
                   "caseSensitive": true,
                   "leftValue": "",
-                  "typeValidation": "strict",
+                  "typeValidation": "loose",
                   "version": 2
                 },
                 "conditions": [
@@ -287,7 +256,7 @@
                 "options": {
                   "caseSensitive": true,
                   "leftValue": "",
-                  "typeValidation": "strict",
+                  "typeValidation": "loose",
                   "version": 2
                 },
                 "conditions": [
@@ -311,7 +280,7 @@
                 "options": {
                   "caseSensitive": true,
                   "leftValue": "",
-                  "typeValidation": "strict",
+                  "typeValidation": "loose",
                   "version": 2
                 },
                 "conditions": [
@@ -335,7 +304,7 @@
                 "options": {
                   "caseSensitive": true,
                   "leftValue": "",
-                  "typeValidation": "strict",
+                  "typeValidation": "loose",
                   "version": 2
                 },
                 "conditions": [
@@ -360,14 +329,11 @@
           "fallbackOutput": "none"
         }
       },
-      "id": "ba9f2619-2205-44c6-bf8c-b0b258c0ece5",
+      "id": "email-template-selector",
       "name": "Email Template Selector",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
-      "position": [
-        256,
-        256
-      ],
+      "position": [1320, 100],
       "notes": "Routes to appropriate email template based on follow_up_count (0-3)"
     },
     {
@@ -383,7 +349,7 @@
             {
               "id": "body",
               "name": "email_body",
-              "value": "=Hi {{ $json.customer_name }},<br><br>\n\nI wanted to check in on the estimate I sent over on {{ $json.quote_date }} for ${{ $json.quote_amount }}.<br><br>\n\nDo you have any questions, or is there anything I can clarify?<br><br>\n\nHappy to jump on a quick call if that's easier.<br><br>\n\nBest,<br>\n{{ $('Parse Config').item.json.config.sender_name }}<br>\n{{ $('Parse Config').item.json.config.sender_phone }}",
+              "value": "=Hi {{ $json.customer_name }},\n\nI wanted to check in on the estimate I sent over on {{ $json.quote_date }} for {{ $json.quote_amount }}.\n\nDo you have any questions, or is there anything I can clarify?\n\nHappy to jump on a quick call if that's easier.\n\nBest,\n{{ $('Parse Config').item.json.config.sender_name }}\n{{ $('Parse Config').item.json.config.sender_phone }}",
               "type": "string"
             }
           ]
@@ -391,14 +357,11 @@
         "includeOtherFields": true,
         "options": {}
       },
-      "id": "bac77e24-5b22-42f4-a764-9346eb1e6191",
+      "id": "email-template-1",
       "name": "Email Template 1",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [
-        480,
-        0
-      ],
+      "position": [1540, -60],
       "notes": "Attempt 1: Friendly check-in"
     },
     {
@@ -414,7 +377,7 @@
             {
               "id": "body",
               "name": "email_body",
-              "value": "=Hi {{ $json.customer_name }},<br><br>\n\nJust circling back on your estimate $({{ $json.quote_amount }}).<br><br>\n\nA few clients in similar situations found it helpful to lock in pricing before our next adjustment.<br><br>\n\nLet me know if you'd like to move forward or if anything's holding you back.<br><br>\n\nBest,<br>\n{{ $('Parse Config').item.json.config.sender_name }}",
+              "value": "=Hi {{ $json.customer_name }},\n\nJust circling back on your estimate ({{ $json.quote_amount }}).\n\nA few clients in similar situations found it helpful to lock in pricing before our next adjustment.\n\nLet me know if you'd like to move forward or if anything's holding you back.\n\nBest,\n{{ $('Parse Config').item.json.config.sender_name }}",
               "type": "string"
             }
           ]
@@ -422,14 +385,11 @@
         "includeOtherFields": true,
         "options": {}
       },
-      "id": "7a72d63a-9d40-4263-b133-2d1b4cf9f6b6",
+      "id": "email-template-2",
       "name": "Email Template 2",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [
-        480,
-        192
-      ],
+      "position": [1540, 60],
       "notes": "Attempt 2: Value reminder"
     },
     {
@@ -445,7 +405,7 @@
             {
               "id": "body",
               "name": "email_body",
-              "value": "=Hi {{ $json.customer_name }},<br><br>\n\nI know things get busy - just wanted to make sure your estimate doesn't fall through the cracks.<br><br>\n\nIf timing or budget is a concern, I'm happy to discuss options.<br><br>\n\nWorth a quick conversation?<br><br>\n\nBest,<br>\n{{ $('Parse Config').item.json.config.sender_name }}",
+              "value": "=Hi {{ $json.customer_name }},\n\nI know things get busy - just wanted to make sure your estimate doesn't fall through the cracks.\n\nIf timing or budget is a concern, I'm happy to discuss options.\n\nWorth a quick conversation?\n\nBest,\n{{ $('Parse Config').item.json.config.sender_name }}",
               "type": "string"
             }
           ]
@@ -453,14 +413,11 @@
         "includeOtherFields": true,
         "options": {}
       },
-      "id": "19598427-5a77-47ea-88f1-7000b1b7084a",
+      "id": "email-template-3",
       "name": "Email Template 3",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [
-        480,
-        384
-      ],
+      "position": [1540, 180],
       "notes": "Attempt 3: Urgency"
     },
     {
@@ -476,7 +433,7 @@
             {
               "id": "body",
               "name": "email_body",
-              "value": "=Hi {{ $json.customer_name }},<br><br>\n\nI haven't heard back, so I'll assume the timing isn't right.<br><br>\n\nNo hard feelings - I'll close this out on my end. If anything changes, just reply to this email and we can pick back up.<br><br>\n\nThanks for considering us.<br><br>\n\nBest,<br>\n{{ $('Parse Config').item.json.config.sender_name }}",
+              "value": "=Hi {{ $json.customer_name }},\n\nI haven't heard back, so I'll assume the timing isn't right.\n\nNo hard feelings - I'll close this out on my end. If anything changes, just reply to this email and we can pick back up.\n\nThanks for considering us.\n\nBest,\n{{ $('Parse Config').item.json.config.sender_name }}",
               "type": "string"
             }
           ]
@@ -484,14 +441,11 @@
         "includeOtherFields": true,
         "options": {}
       },
-      "id": "8203af57-33da-4838-bd71-36588bb9e5a2",
+      "id": "email-template-4",
       "name": "Email Template 4",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [
-        480,
-        576
-      ],
+      "position": [1540, 300],
       "notes": "Attempt 4: Final / closing"
     },
     {
@@ -500,25 +454,14 @@
         "subject": "={{ $json.email_subject }}",
         "message": "={{ $json.email_body }}",
         "options": {
-          "appendAttribution": false,
           "replyTo": "={{ $('Parse Config').item.json.config.sender_email }}"
         }
       },
-      "id": "52df825a-89ae-4e90-b20b-6c93537d6e24",
+      "id": "send-email",
       "name": "Send Email",
       "type": "n8n-nodes-base.gmail",
       "typeVersion": 2.1,
-      "position": [
-        704,
-        288
-      ],
-      "webhookId": "bca334b3-e0b2-4ebd-bc0c-f6970bf1cf9f",
-      "credentials": {
-        "gmailOAuth2": {
-          "id": "diO2W3nFj4RnQpU9",
-          "name": "Gmail account"
-        }
-      },
+      "position": [1760, 100],
       "notes": "Sends follow-up email via Gmail"
     },
     {
@@ -627,14 +570,11 @@
           "fallbackOutput": "none"
         }
       },
-      "id": "4ad2b8b0-cb79-4ba6-ab99-04f35f3442bf",
+      "id": "sms-template-selector",
       "name": "SMS Template Selector",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
-      "position": [
-        256,
-        1024
-      ],
+      "position": [1320, 500],
       "notes": "Routes to appropriate SMS template based on follow_up_count (0-3)"
     },
     {
@@ -652,14 +592,11 @@
         "includeOtherFields": true,
         "options": {}
       },
-      "id": "8ef01274-b640-4d5a-8df7-a218720b3c62",
+      "id": "sms-template-1",
       "name": "SMS Template 1",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [
-        480,
-        768
-      ],
+      "position": [1540, 420],
       "notes": "Attempt 1: Friendly check-in with opt-out notice"
     },
     {
@@ -677,14 +614,11 @@
         "includeOtherFields": true,
         "options": {}
       },
-      "id": "d905aeae-e4c1-458c-95d4-f473562461f6",
+      "id": "sms-template-2",
       "name": "SMS Template 2",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [
-        480,
-        960
-      ],
+      "position": [1540, 540],
       "notes": "Attempt 2: Value reminder"
     },
     {
@@ -702,14 +636,11 @@
         "includeOtherFields": true,
         "options": {}
       },
-      "id": "03c0631e-1a43-4bab-a1c5-c7581c1760d9",
+      "id": "sms-template-3",
       "name": "SMS Template 3",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [
-        480,
-        1152
-      ],
+      "position": [1540, 660],
       "notes": "Attempt 3: Urgency"
     },
     {
@@ -727,14 +658,11 @@
         "includeOtherFields": true,
         "options": {}
       },
-      "id": "4141d8e1-428c-4b9a-8480-8bca58c7d40f",
+      "id": "sms-template-4",
       "name": "SMS Template 4",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [
-        480,
-        1344
-      ],
+      "position": [1540, 780],
       "notes": "Attempt 4: Final / closing"
     },
     {
@@ -744,21 +672,25 @@
         "message": "={{ $json.sms_body }}",
         "options": {}
       },
-      "id": "3111b2a8-75d8-4746-adfa-1d8aea7c2176",
+      "id": "send-sms",
       "name": "Send SMS",
       "type": "n8n-nodes-base.twilio",
       "typeVersion": 1,
-      "position": [
-        704,
-        1056
-      ],
-      "credentials": {
-        "twilioApi": {
-          "id": "1k3iwzhM63yBs3MH",
-          "name": "Twilio account JK WebPro"
-        }
-      },
+      "position": [1760, 500],
       "notes": "Sends follow-up SMS via Twilio"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "id": "merge-channels",
+      "name": "Merge Results",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.1,
+      "position": [1980, 300],
+      "notes": "Merges results from email and SMS sends for sheet update"
     },
     {
       "parameters": {
@@ -767,7 +699,7 @@
             {
               "id": "new_count",
               "name": "new_follow_up_count",
-              "value": "={{ Number($('Filter Valid Quotes').item.json.follow_up_count) + 1 }}",
+              "value": "={{ Number($json.follow_up_count) + 1 }}",
               "type": "number"
             },
             {
@@ -779,13 +711,13 @@
             {
               "id": "next_fu",
               "name": "new_next_follow_up",
-              "value": "={{ $('Parse Config').item.json.config.mode === 'demo' ? (Number($('Filter Valid Quotes').item.json.follow_up_count) === 0 ? $now.plus({minutes: 1}).toISO() : (Number($('Filter Valid Quotes').item.json.follow_up_count) === 1 ? $now.plus({minutes: 2}).toISO() : (Number($('Filter Valid Quotes').item.json.follow_up_count) === 2 ? $now.plus({minutes: 3}).toISO() : $now.plus({minutes: 4}).toISO()))) : (Number($('Filter Valid Quotes').item.json.follow_up_count) === 0 ? $now.plus({days: 5}).toISO() : (Number($('Filter Valid Quotes').item.json.follow_up_count) === 1 ? $now.plus({days: 10}).toISO() : (Number($('Filter Valid Quotes').item.json.follow_up_count) === 2 ? $now.plus({days: 14}).toISO() : $now.plus({days: 30}).toISO()))) }}",
+              "value": "={{ $('Parse Config').item.json.config.mode === 'demo' ? (Number($json.follow_up_count) === 0 ? $now.plus({minutes: 5}).toISO() : (Number($json.follow_up_count) === 1 ? $now.plus({minutes: 10}).toISO() : (Number($json.follow_up_count) === 2 ? $now.plus({minutes: 15}).toISO() : $now.plus({minutes: 20}).toISO()))) : (Number($json.follow_up_count) === 0 ? $now.plus({days: 5}).toISO() : (Number($json.follow_up_count) === 1 ? $now.plus({days: 10}).toISO() : (Number($json.follow_up_count) === 2 ? $now.plus({days: 14}).toISO() : $now.plus({days: 30}).toISO()))) }}",
               "type": "string"
             },
             {
               "id": "new_status",
               "name": "new_status",
-              "value": "={{ (Number($('Filter Valid Quotes').item.json.follow_up_count) + 1) >= Number($('Parse Config').item.json.config.max_attempts) ? 'lost' : 'active' }}",
+              "value": "={{ (Number($json.follow_up_count) + 1) >= Number($('Parse Config').item.json.config.max_attempts) ? 'lost' : 'active' }}",
               "type": "string"
             }
           ]
@@ -793,14 +725,11 @@
         "includeOtherFields": true,
         "options": {}
       },
-      "id": "3c349380-e800-41ca-b234-76f052f38126",
+      "id": "calculate-next-followup",
       "name": "Calculate Next Follow-up",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [
-        928,
-        672
-      ],
+      "position": [2200, 300],
       "notes": "Calculates next follow-up timestamp based on mode (demo=minutes, production=days)"
     },
     {
@@ -808,89 +737,30 @@
         "operation": "update",
         "documentId": {
           "__rl": true,
-          "value": "1gYqE_iBiNdYKv2fkXqk2R_sYP9IPPFVxkgeGUVHbXZ0",
+          "value": "YOUR_SHEET_ID_HERE",
           "mode": "id"
         },
         "sheetName": {
           "__rl": true,
-          "value": 627713887,
+          "value": "Quote_Followups",
           "mode": "list",
-          "cachedResultName": "Quote_Followups",
-          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1gYqE_iBiNdYKv2fkXqk2R_sYP9IPPFVxkgeGUVHbXZ0/edit#gid=627713887"
+          "cachedResultName": "Quote_Followups"
         },
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
-            "quote_id": "={{ $('Get Active Quotes').item.json.quote_id }}",
-            "next_follow_up": "={{ $json.new_last_follow_up }}",
-            "last_follow_up": "={{ $json.new_last_follow_up }}",
             "follow_up_count": "={{ $json.new_follow_up_count }}",
+            "last_follow_up": "={{ $json.new_last_follow_up }}",
+            "next_follow_up": "={{ $json.new_next_follow_up }}",
             "status": "={{ $json.new_status }}"
           },
-          "matchingColumns": [
-            "quote_id"
-          ],
+          "matchingColumns": ["quote_id"],
           "schema": [
             {
               "id": "quote_id",
               "displayName": "quote_id",
               "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": false
-            },
-            {
-              "id": "customer_name",
-              "displayName": "customer_name",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "customer_email",
-              "displayName": "customer_email",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "customer_phone",
-              "displayName": "customer_phone",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "quote_amount",
-              "displayName": "quote_amount",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "quote_date",
-              "displayName": "quote_date",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "preferred_channel",
-              "displayName": "preferred_channel",
-              "required": false,
-              "defaultMatch": false,
+              "defaultMatch": true,
               "display": true,
               "type": "string",
               "canBeUsedToMatch": true
@@ -930,142 +800,19 @@
               "display": true,
               "type": "string",
               "canBeUsedToMatch": true
-            },
-            {
-              "id": "opted_out",
-              "displayName": "opted_out",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "notes",
-              "displayName": "notes",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "row_number",
-              "displayName": "row_number",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "number",
-              "canBeUsedToMatch": true,
-              "readOnly": true,
-              "removed": true
             }
-          ],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": false
+          ]
         },
         "options": {}
       },
-      "id": "bb39028e-8eaf-4084-b8a5-7c628bb2acd9",
+      "id": "update-sheet",
       "name": "Update Sheet",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.5,
-      "position": [
-        1152,
-        672
-      ],
-      "credentials": {
-        "googleSheetsOAuth2Api": {
-          "id": "eSVWb3iQZSdmZ98G",
-          "name": "Google Sheets account JKWebPro"
-        }
-      },
+      "position": [2420, 300],
       "notes": "Updates the quote record with new follow-up count, timestamps, and status"
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict",
-            "version": 2
-          },
-          "conditions": [
-            {
-              "id": "4de59647-f790-4f81-a9f1-f7439c8ebdd5",
-              "leftValue": "={{ $json.quote_id }}",
-              "rightValue": "",
-              "operator": {
-                "type": "string",
-                "operation": "notEmpty",
-                "singleValue": true
-              }
-            },
-            {
-              "id": "05c4ff4c-c640-4245-b196-34af7d66f233",
-              "leftValue": "={{ $json.customer_name }}",
-              "rightValue": "",
-              "operator": {
-                "type": "string",
-                "operation": "notEmpty",
-                "singleValue": true
-              }
-            },
-            {
-              "id": "10e9bded-7ea7-47b0-9f49-60631dcc16ef",
-              "leftValue": "={{ $json.customer_email }}",
-              "rightValue": "@",
-              "operator": {
-                "type": "string",
-                "operation": "contains"
-              }
-            },
-            {
-              "id": "9f03ca3d-e051-492e-b57b-be780a201e14",
-              "leftValue": "={{ $json.status }}",
-              "rightValue": "active",
-              "operator": {
-                "type": "string",
-                "operation": "equals"
-              }
-            },
-            {
-              "id": "37aef5e3-6a38-465a-a068-a9fc4a9b6c34",
-              "leftValue": "={{ $json.opted_out }}",
-              "rightValue": true,
-              "operator": {
-                "type": "boolean",
-                "operation": "notEquals"
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
-      },
-      "type": "n8n-nodes-base.filter",
-      "typeVersion": 2.2,
-      "position": [
-        -416,
-        672
-      ],
-      "id": "85e3d689-f022-4042-b4b9-7aee842dff57",
-      "name": "Filter Valid Quotes"
-    },
-    {
-      "parameters": {},
-      "type": "n8n-nodes-base.limit",
-      "typeVersion": 1,
-      "position": [
-        -864,
-        672
-      ],
-      "id": "6ec69e15-afe9-4d01-b00d-1d6ab7ac4f1a",
-      "name": "Single Config Item"
     }
   ],
-  "pinData": {},
   "connections": {
     "Schedule Trigger": {
       "main": [
@@ -1093,7 +840,7 @@
       "main": [
         [
           {
-            "node": "Single Config Item",
+            "node": "Get Active Quotes",
             "type": "main",
             "index": 0
           }
@@ -1104,7 +851,7 @@
       "main": [
         [
           {
-            "node": "Filter Valid Quotes",
+            "node": "Filter Due Quotes",
             "type": "main",
             "index": 0
           }
@@ -1232,7 +979,7 @@
       "main": [
         [
           {
-            "node": "Calculate Next Follow-up",
+            "node": "Merge Results",
             "type": "main",
             "index": 0
           }
@@ -1319,6 +1066,17 @@
       "main": [
         [
           {
+            "node": "Merge Results",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Results": {
+      "main": [
+        [
+          {
             "node": "Calculate Next Follow-up",
             "type": "main",
             "index": 0
@@ -1336,39 +1094,16 @@
           }
         ]
       ]
-    },
-    "Filter Valid Quotes": {
-      "main": [
-        [
-          {
-            "node": "Filter Due Quotes",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Single Config Item": {
-      "main": [
-        [
-          {
-            "node": "Get Active Quotes",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
     }
   },
-  "active": true,
+  "active": false,
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "5e5df96e-4693-47b4-a452-8671c7be3abe",
+  "versionId": "1",
   "meta": {
-    "templateCredsSetupCompleted": true,
-    "instanceId": "7d06ee333cd72d30aefc89f2565a726e1ce3d1f9e9660ca12dddbdf7f81338da"
+    "templateCredsSetupCompleted": true
   },
-  "id": "nu6KcWbL1BLhKNhu",
+  "id": "main-followup-v2",
   "tags": []
 }
